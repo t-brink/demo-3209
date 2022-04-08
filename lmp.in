@@ -1,0 +1,53 @@
+label loopA
+variable suffix index "orig" "fixed"
+
+  print "# scale    energy (eV/atom)    pxx    pzz" file energy.${suffix}.dat
+
+  label loopB
+  clear
+  variable ff loop 0 10000
+
+    variable f equal "1 + v_ff * 0.00002"
+
+    units metal
+    boundary p s p
+    atom_style atomic
+
+    read_data start2.data.gz
+
+    change_box all  x scale $f  y scale $f  z scale $f remap
+
+    pair_style eam
+    pair_coeff * * Au_u3.${suffix}.eam
+
+    mass 1 196.966569 # Au
+    mass 2 196.966569 # Au
+    mass 3 196.966569 # Au
+
+    group gb type 2
+
+    timestep 0.001
+
+    compute pe all pe/atom
+    compute peavg gb reduce ave c_pe
+    variable peavg equal c_peavg
+    variable pxx equal pxx
+    variable pzz equal pzz
+
+    thermo_style    custom step temp pe ke etotal enthalpy press vol       &
+                    lx ly lz xy xz yz pxx pyy pzz pxy pxz pyz atoms        &
+                    v_f v_peavg cpu cpuremain
+    thermo_modify   norm no  flush yes  format float %20.15g
+    thermo          10
+
+    velocity        all set 0 0 0
+
+    run             0
+
+    print "$f ${peavg} ${pxx} ${pzz}" append energy.${suffix}.dat
+
+  next ff
+  jump SELF loopB
+
+next suffix
+jump SELF loopA
